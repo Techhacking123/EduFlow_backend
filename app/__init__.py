@@ -1,5 +1,5 @@
 import os
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from .config import config_by_name
 from .extensions import db, migrate, jwt, mail, bcrypt, cors, limiter, socketio
 
@@ -58,6 +58,18 @@ def create_app(config_name=None):
     # Register global error handlers
     _register_error_handlers(app)
 
+    # Safety net: add CORS headers on responses where Flask-CORS missed them
+    @app.after_request
+    def add_cors_headers(response):
+        # Only add if Flask-CORS hasn't already set the header
+        if 'Access-Control-Allow-Origin' not in response.headers:
+            origin = request.headers.get('Origin', '')
+            if origin in allowed_origins:
+                response.headers['Access-Control-Allow-Origin'] = origin
+                response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+                response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, PATCH, DELETE, OPTIONS'
+                response.headers['Access-Control-Allow-Credentials'] = 'true'
+        return response
 
     return app
 

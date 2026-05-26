@@ -91,7 +91,7 @@ def register():
         'success': True,
         'message': 'Registered successfully',
         'data': {
-            'user_id': user.id,
+            'user_id': str(user.id),
             'email': user.email,
             'role': user.role,
             'student_code': user.student_code,
