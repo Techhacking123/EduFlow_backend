@@ -20,9 +20,11 @@ def create_app(config_name=None):
     bcrypt.init_app(app)
     limiter.init_app(app)
     socketio.init_app(app)
+    cors_origins = os.getenv('CORS_ORIGINS', 'http://localhost:5173,https://edu-flow-weld.vercel.app').split(',')
+    
     cors.init_app(app, resources={
-        r"/api/.*": {
-            "origins": os.getenv('CORS_ORIGINS', 'http://localhost:5173'),
+        r"/api/*": {
+            "origins": cors_origins,
             "methods": ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
             "allow_headers": ["Content-Type", "Authorization"],
             "supports_credentials": True,
@@ -57,8 +59,15 @@ def create_app(config_name=None):
     # Ensure CORS headers are present on ALL responses, including errors
     @app.after_request
     def add_cors_headers(response):
-        origin = os.getenv('CORS_ORIGINS', 'http://localhost:5173')
-        response.headers.setdefault('Access-Control-Allow-Origin', origin)
+        from flask import request
+        origin = request.headers.get('Origin')
+        cors_origins = os.getenv('CORS_ORIGINS', 'http://localhost:5173,https://edu-flow-weld.vercel.app').split(',')
+        
+        if origin in cors_origins or '*' in cors_origins:
+            response.headers['Access-Control-Allow-Origin'] = origin
+        elif cors_origins:
+            response.headers.setdefault('Access-Control-Allow-Origin', cors_origins[0])
+            
         response.headers.setdefault('Access-Control-Allow-Headers', 'Content-Type, Authorization')
         response.headers.setdefault('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS')
         response.headers.setdefault('Access-Control-Allow-Credentials', 'true')
