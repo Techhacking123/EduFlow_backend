@@ -1,5 +1,5 @@
 import os
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from .config import config_by_name
 from .extensions import db, migrate, jwt, mail, bcrypt, cors, limiter, socketio
 
@@ -20,9 +20,13 @@ def create_app(config_name=None):
     bcrypt.init_app(app)
     limiter.init_app(app)
     socketio.init_app(app)
+    # Parse allowed origins from env (comma-separated)
+    raw_origins = os.getenv('CORS_ORIGINS', 'http://localhost:5173')
+    allowed_origins = [o.strip() for o in raw_origins.split(',') if o.strip()]
+
     cors.init_app(app, resources={
         r"/api/.*": {
-            "origins": os.getenv('CORS_ORIGINS', 'http://localhost:5173'),
+            "origins": allowed_origins,
             "methods": ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
             "allow_headers": ["Content-Type", "Authorization"],
             "supports_credentials": True,
@@ -57,11 +61,14 @@ def create_app(config_name=None):
     # Ensure CORS headers are present on ALL responses, including errors
     @app.after_request
     def add_cors_headers(response):
-        origin = os.getenv('CORS_ORIGINS', 'http://localhost:5173')
-        response.headers.setdefault('Access-Control-Allow-Origin', origin)
-        response.headers.setdefault('Access-Control-Allow-Headers', 'Content-Type, Authorization')
-        response.headers.setdefault('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS')
-        response.headers.setdefault('Access-Control-Allow-Credentials', 'true')
+        request_origin = request.headers.get('Origin', '')
+        if request_origin in allowed_origins:
+            response.headers['Access-Control-Allow-Origin'] = request_origin
+        elif allowed_origins:
+            response.headers.setdefault('Access-Control-Allow-Origin', allowed_origins[0])
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, PATCH, DELETE, OPTIONS'
+        response.headers['Access-Control-Allow-Credentials'] = 'true'
         return response
 
     return app
