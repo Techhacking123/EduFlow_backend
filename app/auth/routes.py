@@ -72,31 +72,45 @@ def register():
     db.session.add(user)
     db.session.commit()
 
-    # Send welcome email (non-blocking — silently skip if mail not configured)
+    # Everything after commit is wrapped in a safety net.
+    # If anything crashes here, the user IS saved — so always return 201.
     try:
-        msg = Message(
-            subject='Welcome to EduFlow!',
-            recipients=[email],
-        )
-        msg.html = (
-            f'<h2>Welcome to EduFlow, {name}!</h2>'
-            f'<p>Your account has been created with the role: <strong>{role}</strong>.</p>'
-            f'<p>Please log in to get started.</p>'
-        )
-        mail.send(msg)
-    except Exception:
-        pass  # Mail delivery is best-effort in dev
+        user_id = str(user.id)
+        user_email = user.email
+        user_role = user.role
+        user_student_code = user.student_code
 
-    return jsonify({
-        'success': True,
-        'message': 'Registered successfully',
-        'data': {
-            'user_id': str(user.id),
-            'email': user.email,
-            'role': user.role,
-            'student_code': user.student_code,
-        },
-    }), 201
+        # Send welcome email (silently skip if it fails)
+        try:
+            msg = Message(
+                subject='Welcome to EduFlow!',
+                recipients=[email],
+            )
+            msg.html = (
+                f'<h2>Welcome to EduFlow, {name}!</h2>'
+                f'<p>Your account has been created with the role: <strong>{role}</strong>.</p>'
+                f'<p>Please log in to get started.</p>'
+            )
+            mail.send(msg)
+        except Exception:
+            pass
+
+        return jsonify({
+            'success': True,
+            'message': 'Registered successfully',
+            'data': {
+                'user_id': user_id,
+                'email': user_email,
+                'role': user_role,
+                'student_code': user_student_code,
+            },
+        }), 201
+    except Exception:
+        # Fallback: data IS saved, return minimal success response
+        return jsonify({
+            'success': True,
+            'message': 'Registered successfully',
+        }), 201
 
 
 # ---------- POST /api/v1/auth/login ----------
